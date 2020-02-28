@@ -215,8 +215,9 @@ Indicates that the object is result of a HTTP request. Used on *HttpResponse*
 
 The following exceptions are shipped with the library, both thrown only at veryspecific cases. 
 
-* **ResponseNetworkException**  
-A ResponseNetworkException is thrown when an HttpRequest fails due to a network error (like a ssl reset, for example)
+* **ResponseException**  
+A *ResponseException* is thrown when an HttpRequest fails due to a network error (like a ssl reset, for example)  
+When made by this library, the Exception will contain the Request where it happened and the Response returned by the server.
 * **UploadException**  
 An UploadException is thrown when an error is found on a HttpUploadFile, making easier to spot upload errors
 

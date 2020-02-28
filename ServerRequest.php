@@ -203,8 +203,7 @@ class HttpRequest {
      * 
      * @return HttpResponse
      */
-    protected function Execute()
-    {
+    protected function Execute() {
         $Config = array(
             'method' => empty($this->method) ? HttpMethod::GET : strtoupper($this->method)
         );
@@ -246,7 +245,7 @@ class HttpRequest {
             self::STREAM_PROTOCOL => $Config
         ));
         // Generating response with stream
-        return new HttpResponse(@fopen($this->url, 'rb', false, $Context), $this->url);
+        return new HttpResponse(@fopen($this->url, 'rb', false, $Context), $this);
     }
     /**
      * Removes the given $Headers from Request.
@@ -430,7 +429,7 @@ class HttpRequest {
  * @property-read bool $bodyUsed Whether the body has been used in a response yet
  * 
  * @see HttpRequest
- * @see ResponseNetworkException
+ * @see ResponseException
  */
 class HttpResponse implements IResponseData {
     // Javascript Fetch API's Response imitation
@@ -493,6 +492,13 @@ class HttpResponse implements IResponseData {
 
     // Internal use properties (not to be exposed)
     /**
+     * Copy of the Request that originated this Response.
+     * Only set when an error occurs.
+     * 
+     * @var HttpRequest
+     */
+    protected $Request;
+    /**
      * Current error reason on .catch() sequence.
      * 
      * @var mixed
@@ -516,11 +522,12 @@ class HttpResponse implements IResponseData {
     /**
      * Creates a new Result from an HttpRequest to $Stream, already computing public properties values.
      * 
-     * @var resource $Stream An open Stream with HTTP Wrapper
+     * @param resource $Stream An open Stream with HTTP Wrapper
+     * @param HttpRequest $Request The request that created this object
      * @return self
      */
-    public function __construct($Stream, $CalledUrl = '') {
-        $this->body = $Stream;
+    public function __construct($Stream, $Request) {
+        $this->body     = $Stream;
         $this->bodyUsed = false;
 
         if ($Stream !== false) {
@@ -584,7 +591,8 @@ class HttpResponse implements IResponseData {
             }
         } else { // Stream being false = error
             $this->ok = false;
-            $this->url = $CalledUrl;
+            $this->url = $this->Request->url;
+            $this->Request  = clone $Request->url;
 
             $LastError = error_get_last();
             // If the error hapened on this file
@@ -592,7 +600,7 @@ class HttpResponse implements IResponseData {
                 $Output = array();
                 // eg: HTTP/1.0 405 Method Not Allowed
                 preg_match("%(?:http[\/ ]\d\.\d)\s?(\d+)\s([\w\s]+)%i", $LastError['message'], $Output);
-                $this->type = stream_is_local($CalledUrl)
+                $this->type = stream_is_local($this->Request->url)
                     ? 'basic'
                     : 'cors'
                 ;
@@ -698,15 +706,17 @@ class HttpResponse implements IResponseData {
      * 
      * @param bool $assoc When TRUE, returned objects will be converted into associative arrays.
      * @return object|array
-     * @throws ResponseNetworkException If the method is called after an error occurred.
+     * @throws ResponseException If the method is called after an error occurred.
      */
     public function json($assoc = false) {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
-            throw new ResponseNetworkException(
-                'Nothing to read, an error occurred.'
-            );
+            throw new ResponseException(array(
+                'message'  => 'Nothing to read, an error occurred.',
+                'Response' => $this,
+                'Request'  => $this->Request
+            ));
         }
 
         return json_decode(
@@ -718,15 +728,17 @@ class HttpResponse implements IResponseData {
      * Read's response body as pure text.
      * 
      * @return string
-     * @throws ResponseNetworkException If the method is called after an error occurred.
+     * @throws ResponseException If the method is called after an error occurred.
      */
     public function text() {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
-            throw new ResponseNetworkException(
-                'Nothing to read, an error occurred.'
-            );
+            throw new ResponseException(array(
+                'message'  => 'Nothing to read, an error occurred.',
+                'Response' => $this,
+                'Request'  => $this->Request
+            ));
         }
 
         return stream_get_contents($this->body);
@@ -785,18 +797,74 @@ class HttpResponse implements IResponseData {
 }
 
 /**
- * A ResponseNetworkException is thrown when an HttpRequest fails due to a network error
+ * A ResponseException is thrown when an HttpRequest fails due to a network error
  * (like a ssl reset, for example).
  * 
  * @param string $message The Exception message to throw.
  * @param int $code The Exception code.
  * @param Throwable $previous The previous exception used for the exception chaining.
+ * 
+ * @property HttpRequest $Request Request in witch the response was thrown
+ * @property HttpResponse $Response Response 
+ * 
  * @see HttpRequest
  */
-class ResponseNetworkException extends Exception {
-    public function __construct($message = null, $code = 0, $previous = null)
-    {
-        parent::__construct($message, $code, $previous);
+class ResponseException extends Exception {
+    /**
+     * HttpRequest send to the server.
+     * 
+     * @var HttpRequest
+     */
+    protected $Request;
+    /**
+     * Response returned by the server.
+     * 
+     * @var HttpResponse
+     */
+    protected $Response;
+
+
+
+    /**
+     * Creates a new RequestException to indicate that a Request failed.
+     * 
+     * @param array|string $Data Array with all propeties of the class or a simple mensage string
+     * @param int $code (optional) Error code
+     * @param \Throwable $previous (optional) Previous exception on the call stack
+     */
+    public function __construct($Data = null, $code = 0, $previous = null) {
+        if (is_array($Data)) {
+            // Setting values
+            foreach ($Data as $Name => $Value) {
+                if (property_exists($this, $Name)) {
+                    $this->{$Name} = $Value;
+                }
+            }
+            if (empty($this->message)) {
+                $this->message = '';
+            }
+            if (empty($this->code)) {
+                $this->code = 0;
+            }
+            if (empty($this->previous)) {
+                $this->previous = null;
+            }
+            parent::__construct($this->message, $this->code, $this->previous);
+        } else {
+            parent::__construct($Data, $code, $previous);
+        }
+    }
+    /**
+     * Returns a field that can be only read.
+     * 
+     * @return string $name Name of the field to return.
+     * @return mixed
+     */
+    public function __get($name) {
+        return property_exists($this, $name)
+            ? $this->{$name}
+            : null
+        ;
     }
 }
 
@@ -1098,6 +1166,7 @@ class UploadException extends Exception {
                 $message = "Unknown upload error";
                 break;
         }
+
         return $message;
     }
 }
