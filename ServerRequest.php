@@ -529,7 +529,10 @@ class HttpResponse implements IResponseData {
         $this->body     = $Stream;
         $this->bodyUsed = false;
         
-        $this->Request = clone $Request;
+        $HasRequest = is_object($Request);
+        if ($HasRequest) {
+            $this->Request = clone $Request;
+        }
         if ($Stream !== false) {
             $MetaData = stream_get_meta_data($Stream);
             $Headers = $MetaData['wrapper_data'];
@@ -591,11 +594,14 @@ class HttpResponse implements IResponseData {
             }
         } else { // Stream being false = error
             $this->ok = false;
-            $this->url = $this->Request->url;
+
+            if ($HasRequest) {
+                $this->url = $this->Request->url;
+            }
 
             $LastError = error_get_last();
             // If the error hapened on this file
-            if ($LastError['file'] == __FILE__) {
+            if ($LastError['file'] == __FILE__ && $HasRequest) {
                 $Output = array();
                 // eg: HTTP/1.0 405 Method Not Allowed
                 preg_match("%(?:http[\/ ]\d\.\d)\s?(\d+)\s([\w\s]+)%i", $LastError['message'], $Output);
@@ -618,8 +624,9 @@ class HttpResponse implements IResponseData {
             } else {
                 $this->type = 'error';
                 $this->status = 0;
-                $this->statusText = 'network error';
+                $this->statusText = '';
                 $this->CurentReason = 'Unknow network error';
+                $this->body = null;
             }
         }
 
@@ -665,7 +672,7 @@ class HttpResponse implements IResponseData {
      * @return self
      * @throws LogicException If the response body has already been read
      */
-    public function _clone( ) {
+    public function _clone() {
         if ($this->bodyUsed) {
             throw new LogicException(
                 'Cannnot clone a Request when it\'s body was alredy read.'
@@ -693,19 +700,44 @@ class HttpResponse implements IResponseData {
     /**
      * Returns a new Response object associated with a network error.
      * 
-     * Not to be implemented yet, depends on $type.
      * @return self
      */
-    // public function error() {
-    // }
+    public static function error() {
+        return new HttpResponse(false, null);
+    }
     /**
      * Returns a new Response resulting in a redirect to the specified URL.
      * 
-     * Not to be implemented yet.
      * @return self
      */
-    // public function redirect($url, $status = 0) {
-    // }
+    public static function redirect($url, $status = 0) {
+        if ($status == 0) {
+            $status = 302;
+        } else {
+            switch ($status) {
+                case 301:
+                case 302:
+                case 303:
+                case 307:
+                case 308:
+                    break;
+                default:
+                    throw new UnexpectedValueException("Invalid redirect status");
+            }
+        }
+
+        $Result = new HttpResponse(false, null);
+        $Result->status = $status;
+        $Result->url = $url;
+        $Result->type = stream_is_local($url)
+            ? 'basic'
+            : 'cors'
+        ;
+        $Result->redirected = true;
+        $Result->CurentReason = null;
+
+        return $Result;
+    }
 
 
 
