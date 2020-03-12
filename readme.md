@@ -66,9 +66,9 @@ These public methods are provided:
 
 * **__construct**([array *$Options*])  
 Constructor that may receive an associative array to set all the object fields rightaway
-* **AddHeaders**(string|array *$Headers*) : *this*  
+* **AddHeaders**(string|array *$Headers*) : *self*  
 Adds the given *$Headers* to the request, ovewriting previous headers with the same name
-* **RemoveHeaders**(string|array *$Headers*) : *this*  
+* **RemoveHeaders**(string|array *$Headers*) : *self*  
 Removes the given *$Headers* from Request
 * **_fetch**(array *$init*) : *HttpResponse*  
 Imitation of Javasctript's fetch method, without url parameter (already on the class)  
@@ -126,11 +126,11 @@ Whether the body has been used in a response yet
 
 These methods from Javascript's [Promise](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise) object are implemented:
 
-* **catch**(callable *$rejected*) : *this*  
+* **catch**(callable *$rejected*) : *self*  
 Runs an error handler callback and return this HttpResponse for chaining
 * **finally**(callable *$settled*) : void  
-Runs a handler callback, no matter the status of the response
-* **then**(callable *$fulfilled*, [callable *$rejected*]) : *this*  
+Runs a handler callback, no matter the status of the response, does not allow chaining
+* **then**(callable *$fulfilled*, [callable *$rejected*]) : *self*  
 Runs a succes handler callback and, optionally error handler callback, returning this HttpResponse for chaining
 
 >***Notice:** due to PHP's synchronous nature, you should call Response->catch() before Response->then() to deal with errors.* 
@@ -141,6 +141,16 @@ Also, these methods from Javascript's [Response](https://developer.mozilla.org/e
 Read's response body as decoded JSON content
 * **finally**() : *string*  
 Read's response body as pure text
+
+
+And, as in HttpRequest, there are also some methods to mimic jQuery's functions:
+
+* **always**(callable|callable[] *$alwaysCallbacks*) : void  
+Runs one or many handler callbacks, no matter the status of the response
+* **done**(callable|callable[] *$doneCallbacks*) : *self*  
+Runs one or many success handler callbacks
+* **catch**(callable|callable[] *$failCallbacks*) : *self*  
+Runs one or many error handler callbacks
 
 ---
 

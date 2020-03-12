@@ -499,7 +499,7 @@ class HttpResponse implements IResponseData {
      */
     protected $Request;
     /**
-     * Current error reason on .catch() sequence.
+     * Current error reason on ._catch() sequence.
      * 
      * @var mixed
      */
@@ -591,8 +591,8 @@ class HttpResponse implements IResponseData {
             }
         } else { // Stream being false = error
             $this->ok = false;
+            $this->Request  = clone $Request;
             $this->url = $this->Request->url;
-            $this->Request  = clone $Request->url;
 
             $LastError = error_get_last();
             // If the error hapened on this file
@@ -753,7 +753,7 @@ class HttpResponse implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function catch($rejected) {
+    public function _catch($rejected) {
         if ($this->type == 'error' && is_callable($rejected)) {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
         }
@@ -765,7 +765,7 @@ class HttpResponse implements IResponseData {
      * 
      * @param callable $onFinally
      */
-    public function finally($settled) {
+    public function _finally($settled) {
         if (is_callable($settled)) {
             call_user_func($settled);
         }
@@ -778,8 +778,9 @@ class HttpResponse implements IResponseData {
         }
     }
     /**
-     * Runs a succes handler callback and, optionally error handler callback, choosing wich to execute based on
-     * response status. Returns this HttpResponse, allowing chaining.
+     * Runs a success handler callback and, optionally error handler callback, choosing wich to execute based on
+     * response status.
+     * Returns this HttpResponse, allowing chaining.
      * 
      * @param callable $fulfilled
      * @param callable $rejected
@@ -790,6 +791,64 @@ class HttpResponse implements IResponseData {
             $this->CurentValue = call_user_func($fulfilled, $this->CurentValue);
         } elseif (is_callable($rejected)) {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
+        }
+
+        return $this;
+    }
+
+
+
+    // jqXHR like chainable methods
+    /**
+     * Runs one or many handler callbacks, no matter the status of the response.
+     * Alias to HttpResponse::_finally($alwaysCallbacks) when used with a single callback as parameter.
+     * 
+     * @param callable|callable[] $alwaysCallbacks
+     * @return self
+     */
+    public function always($alwaysCallbacks) {
+        if (is_array($alwaysCallbacks)) {
+            foreach ($alwaysCallbacks as $Callback) {
+                $this->_finally($Callback);
+            }
+        } else {
+            $this->_finally($alwaysCallbacks);
+        }
+
+        return $this;
+    }
+    /**
+     * Runs one or many success handler callbacks.
+     * Alias to HttpResponse::then($doneCallbacks) when used with a single callback as parameter.
+     * 
+     * @param callable|callable[] $doneCallbacks
+     * @return self
+     */
+    public function done($doneCallbacks) {
+        if (is_array($doneCallbacks)) {
+            foreach ($doneCallbacks as $Callback) {
+                $this->then($Callback);
+            }
+        } else {
+            $this->then($doneCallbacks);
+        }
+
+        return $this;
+    }
+    /**
+     * Runs one or many error handler callbacks.
+     * Alias to HttpResponse::_catch($failCallbacks) when used with a single callback as parameter.
+     * 
+     * @param callable|callable[] $failCallbacks
+     * @return self
+     */
+    public function fail($failCallbacks) {
+        if (is_array($failCallbacks)) {
+            foreach ($failCallbacks as $Callback) {
+                $this->_catch($Callback);
+            }
+        } else {
+            $this->_catch($failCallbacks);
         }
 
         return $this;
@@ -828,8 +887,8 @@ class ResponseException extends Exception {
     /**
      * Creates a new RequestException to indicate that a Request failed.
      * 
-     * @param array|string $Data Array with all propeties of the class or a simple mensage string
-     * @param int $code (optional) Error code
+     * @param array|string $Data Array with all propeties of the class or a simple message string
+     * @param int|string $code (optional) Error code
      * @param \Throwable $previous (optional) Previous exception on the call stack
      */
     public function __construct($Data = null, $code = 0, $previous = null) {
@@ -849,9 +908,30 @@ class ResponseException extends Exception {
             if (empty($this->previous)) {
                 $this->previous = null;
             }
-            parent::__construct($this->message, $this->code, $this->previous);
+
+            $IntCode = is_int($this->code);
+
+            parent::__construct(
+                $this->message,
+                $IntCode ? $this->code : 0,
+                $this->previous
+            );
+
+            if (!$IntCode) {
+                $this->code = $code;
+            }
         } else {
-            parent::__construct($Data, $code, $previous);
+            $IntCode = is_int($code);
+
+            parent::__construct(
+                $Data,
+                $IntCode ? $code : 0,
+                $previous
+            );
+
+            if (!$IntCode) {
+                $this->code = $code;
+            }
         }
     }
     /**
@@ -865,6 +945,38 @@ class ResponseException extends Exception {
             ? $this->{$name}
             : null
         ;
+    }
+
+    /**
+     * Represents the Exception as a JSON string, adding all registered sequence of previous exceptions as a stack.
+     * 
+     * @return string
+     */
+    public function __toString() {
+        $Data = [
+            'status'  => $this->code,
+            'message' => $this->message,
+            'file'    => $this->getFile(),
+            'line'    => $this->getLine(),
+            'stack'   => []
+        ];
+
+        /**
+         * @var Throwable
+         */
+        $Previous = $this->getPrevious();
+        while($Previous != null) {
+            $Data['stack'][] = [
+                'status'  => $Previous->getCode(),
+                'message' => $Previous->getMessage(),
+                'file'    => $this->getFile(),
+                'line'    => $this->getLine()
+            ];
+
+            $Previous = $Previous->getPrevious();
+        }
+
+        return json_encode($Data);
     }
 }
 
@@ -1186,11 +1298,4 @@ interface IRequestData {
  * Marker interface, no functionality provided.
  */
 interface IResponseData {
-}
-/**
- * Indicates that the class is a fixed enumeration of values.
- * 
- * Marker interface, no functionality provided.
- */
-interface IEnum {
 }
