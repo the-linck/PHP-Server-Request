@@ -493,7 +493,6 @@ class HttpResponse implements IResponseData {
     // Internal use properties (not to be exposed)
     /**
      * Copy of the Request that originated this Response.
-     * Only set when an error occurs.
      * 
      * @var HttpRequest
      */
@@ -529,7 +528,8 @@ class HttpResponse implements IResponseData {
     public function __construct($Stream, $Request) {
         $this->body     = $Stream;
         $this->bodyUsed = false;
-
+        
+        $this->Request = clone $Request;
         if ($Stream !== false) {
             $MetaData = stream_get_meta_data($Stream);
             $Headers = $MetaData['wrapper_data'];
@@ -591,7 +591,6 @@ class HttpResponse implements IResponseData {
             }
         } else { // Stream being false = error
             $this->ok = false;
-            $this->Request  = clone $Request;
             $this->url = $this->Request->url;
 
             $LastError = error_get_last();
@@ -661,20 +660,36 @@ class HttpResponse implements IResponseData {
 
     // Fetch API-like Response methods
     /**
-     * Creates a clone of a Response object.
+     * Creates a clone of this Response object, allowing a new use of the response body (on the new object).
      * 
      * @return self
-     * Not to be implemented yet, depends on cloning Streams.
+     * @throws LogicException If the response body has already been read
      */
-    // public function clone() {
-    //     if ($this->bodyUsed) {
-    //         throw new LogicException(
-    //             'Cannnot clone a Request when it\'s body was alredy read.'
-    //         );
-    //     }
-    //     return clone $this;
-    // }
+    public function _clone( ) {
+        if ($this->bodyUsed) {
+            throw new LogicException(
+                'Cannnot clone a Request when it\'s body was alredy read.'
+            );
+        }
+        $Result = clone $this;
+        
+        $Copy = fopen('php://temp', 'w+');
+        stream_copy_to_stream($this->body, $Copy);
+        rewind($Copy);
 
+        $this->body = fopen('php://temp', 'r+');
+        stream_copy_to_stream($Copy, $this->body);
+        rewind($this->body);
+        
+        rewind($Copy);
+        $Result->body = fopen('php://temp', 'r+');
+        stream_copy_to_stream($Copy, $Result->body);
+        rewind($Result->body);
+
+        fclose($Copy);
+
+        return $Result;
+    }
     /**
      * Returns a new Response object associated with a network error.
      * 
