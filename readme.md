@@ -210,8 +210,6 @@ Returns the string representation of the file content
 
 Three marker interfaces are provided in this lib:
 
-* **IEnum**  
-Indicates that the class is a fixed enumeration of values. Used on *HttpMethod*
 * **IRequestData**  
 Indicates that the object is meant to be sent in a HTTP request
 * **IResponseData**  
