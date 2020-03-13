@@ -1,9 +1,13 @@
 <?php
+namespace Http;
+
+
+
 /**
  * Dummy container to represent Http Methods in a standard way.
  * All methods in https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods are listed, in the same order.
  */
-abstract class HttpMethod {
+abstract class Method implements IEnum {
     /**
      * The GET method requests a representation of the specified resource.
      * Requests using GET should only retrieve data.
@@ -68,7 +72,7 @@ abstract class HttpMethod {
  * 
  * Each object may be reused several times.
  */
-class HttpRequest {
+class Request {
     // HTTP Context options
     /**
      * @var string Protocol used to make requests through Streams native extension.
@@ -150,7 +154,7 @@ class HttpRequest {
 
 
     /**
-     * Creates a new HttpResponse instance, that may be reused several times.
+     * Creates a new Response instance, that may be reused several times.
      * 
      * @param array $Options Allows to initialize any to every field on this object, using the array's keys as
      * property names
@@ -198,14 +202,14 @@ class HttpRequest {
     }
 
     /**
-     * Internal method to open a stream for this HttpRequest, creating a HttpResponse object to deal with the
+     * Internal method to open a stream for this Request, creating a Response object to deal with the
      * [meta]data and allow Javascript's Fetch-like usage.
      * 
-     * @return HttpResponse
+     * @return Response
      */
     protected function Execute() {
         $Config = array(
-            'method' => empty($this->method) ? HttpMethod::GET : strtoupper($this->method)
+            'method' => empty($this->method) ? Method::GET : strtoupper($this->method)
         );
 
         $Options = array(
@@ -245,7 +249,7 @@ class HttpRequest {
             self::STREAM_PROTOCOL => $Config
         ));
         // Generating response with stream
-        return new HttpResponse(@fopen($this->url, 'rb', false, $Context), $this);
+        return new Response(@fopen($this->url, 'rb', false, $Context), $this);
     }
     /**
      * Removes the given $Headers from Request.
@@ -283,7 +287,7 @@ class HttpRequest {
      * Currently suports this fetch options on init: method, headers, body, redirect.
      * 
      * @param array $init
-     * @return HttpResponse
+     * @return Response
      */
     public function _fetch($init = array())
     {
@@ -318,11 +322,11 @@ class HttpRequest {
      * 
      * @param string $resource
      * @param array $init
-     * @return HttpResponse
+     * @return Response
      */
     public static function fetch($resource, $init = array())
     {
-        return (new HttpRequest(array('url' => $resource)))->_fetch($init);
+        return (new Request(array('url' => $resource)))->_fetch($init);
     }
 
 
@@ -334,14 +338,14 @@ class HttpRequest {
      * 
      * @param callable $success A callback function that is executed if the request succeeds.
      * @param string $dataType The type of data expected from the server. 
-     * @return HttpResponse
+     * @return Response
      */
     public function _get($success = null, $dataType = null)
     {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
-        $this->method = HttpMethod::GET;
+        $this->method = Method::GET;
         $this->ignore_errors = false;
         
 
@@ -358,7 +362,7 @@ class HttpRequest {
      * @param mixed $data Data that is sent to the server with the request.
      * @param callable $success A callback function that is executed if the request succeeds.
      * @param string $dataType The type of data expected from the server. 
-     * @return HttpResponse
+     * @return Response
      */
     public static function get($url, $data = null, $success = null, $dataType = null)
     {
@@ -367,23 +371,26 @@ class HttpRequest {
             $Config['content'] = $data;
         }
 
-        return (new HttpRequest($Config))->_get($success, $dataType);
+        return (new Request($Config))->_get($success, $dataType);
     }
     /**
      * Makes a POST request in a similar fashion to jQuery, but supressing $url and $data (suposed to have been already
      * set before calling this method).
-     * A ContentType header with 'application/x-www-form-urlencoded' value is automatically added.
+     * A Content-Type header with 'application/x-www-form-urlencoded' value is added if no Content-Type was set yet.
      * 
      * @param callable $success A callback function that is executed if the request succeeds.
      * @param string $dataType The type of data expected from the server. 
-     * @return HttpResponse
+     * @return Response
+     * @see ContentType::URL_ENCODED
      */
     public function _post($success = null, $dataType = null) {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
-        $this->AddHeaders('Content-Type: application/x-www-form-urlencoded');
-        $this->method = HttpMethod::POST;
+        if (!array_key_exists('Content-Type', $this->header)) {
+            $this->AddHeaders('Content-Type: ' . ContentType::URL_ENCODED);
+        }
+        $this->method = Method::POST;
         $this->ignore_errors = false;
 
         if (is_callable($success)) {
@@ -394,13 +401,13 @@ class HttpRequest {
     }
     /**
      * Makes a POST request in the same syntax as jQuery.
-     * A ContentType header with 'application/x-www-form-urlencoded' value is automatically added.
+     * A Content-Type header with 'application/x-www-form-urlencoded' value is added if no Content-Type was set yet.
      * 
      * @param string $url A callback function that is executed if the request succeeds.
      * @param mixed $data Data that is sent to the server with the request.
      * @param callable $success A callback function that is executed if the request succeeds.
      * @param string $dataType The type of data expected from the server. 
-     * @return HttpResponse
+     * @return Response
      */
     public static function post($url, $data = null, $success = null, $dataType = null) {
         $Config = array('url' => $url);
@@ -408,16 +415,16 @@ class HttpRequest {
             $Config['content'] = $data;
         }
 
-        return (new HttpRequest($Config))->_post($success, $dataType);
+        return (new Request($Config))->_post($success, $dataType);
     }
 }
 
 /**
- * Contains the data and headers returned from a HttpRequest, providing most of the fields acessible in a
+ * Contains the data and headers returned from a Request, providing most of the fields acessible in a
  * Javascript's fetch Response (https://developer.mozilla.org/en-US/docs/Web/API/Response), but also with some
  * functionalities of Javascript's Promises to make the logic more simple.
  *  * 
- * @property-read object $headers Every header returned by the HttpRequest.
+ * @property-read object $headers Every header returned by the Request.
  * @property-read bool $ok Indicates whether the response was successful (status in the range 200–299) or not.
  * @property-read bool $redirected Indicates whether or not the response is the result of a redirect (that is, its URL
  * list has more than one entry).
@@ -428,13 +435,13 @@ class HttpRequest {
  * @property-read resource $body Stream to response's content
  * @property-read bool $bodyUsed Whether the body has been used in a response yet
  * 
- * @see HttpRequest
+ * @see Request
  * @see ResponseException
  */
-class HttpResponse implements IResponseData {
+class Response implements IResponseData {
     // Javascript Fetch API's Response imitation
     /**
-     * @var object Every header returned by the HttpRequest.
+     * @var object Every header returned by the Request.
      */
     protected $headers;
     /**
@@ -469,7 +476,7 @@ class HttpResponse implements IResponseData {
      */
     protected $url;
     /**
-     * @var string Every header returned by the HttpRequest.
+     * @var string Every header returned by the Request.
      * 
      * Dreprecated, not to be implemented.
      */
@@ -494,7 +501,7 @@ class HttpResponse implements IResponseData {
     /**
      * Copy of the Request that originated this Response.
      * 
-     * @var HttpRequest
+     * @var Request
      */
     protected $Request;
     /**
@@ -519,10 +526,10 @@ class HttpResponse implements IResponseData {
 
 
     /**
-     * Creates a new Result from an HttpRequest to $Stream, already computing public properties values.
+     * Creates a new Result from an Request to $Stream, already computing public properties values.
      * 
      * @param resource $Stream An open Stream with HTTP Wrapper
-     * @param HttpRequest $Request The request that created this object
+     * @param Request $Request The request that created this object
      * @return self
      */
     public function __construct($Stream, $Request) {
@@ -540,7 +547,7 @@ class HttpResponse implements IResponseData {
             $this->url = $MetaData['uri'];
             // If has headers
             if (!empty($Headers) && count($Headers) > 0) {
-                $this->headers = new stdClass();
+                $this->headers = new \stdClass();
                 // Initially assumes everything is ok
                 $this->ok = true;
     
@@ -573,7 +580,7 @@ class HttpResponse implements IResponseData {
                 // Dummy statusText
                 $this->statusText = $this->ok ? 'OK' : '';
 
-                // If this HttpResponse is result of a local or a remote HttpRequest
+                // If this Response is result of a local or a remote Request
                 $this->type = stream_is_local($Stream)
                     ? 'basic'
                     : 'cors'
@@ -646,7 +653,7 @@ class HttpResponse implements IResponseData {
         }
     }
     /**
-     * Magic method __get() to make the HttpResponse properties read-only.
+     * Magic method __get() to make the Response properties read-only.
      * 
      * @return mixed|null Property value if it exists, null else.
      */
@@ -712,7 +719,7 @@ class HttpResponse implements IResponseData {
      */
     public function _clone() {
         if ($this->bodyUsed) {
-            throw new LogicException(
+            throw new \LogicException(
                 'Cannnot clone a Request when it\'s body was alredy read.'
             );
         }
@@ -741,7 +748,7 @@ class HttpResponse implements IResponseData {
      * @return self
      */
     public static function error() {
-        return new HttpResponse(false, null);
+        return new Response(false, null);
     }
     /**
      * Returns a new Response resulting in a redirect to the specified URL.
@@ -760,11 +767,11 @@ class HttpResponse implements IResponseData {
                 case 308:
                     break;
                 default:
-                    throw new UnexpectedValueException("Invalid redirect status");
+                    throw new \UnexpectedValueException("Invalid redirect status");
             }
         }
 
-        $Result = new HttpResponse(false, null);
+        $Result = new Response(false, null);
         $Result->status = $status;
         $Result->url = $url;
         $Result->type = stream_is_local($url)
@@ -898,7 +905,7 @@ class HttpResponse implements IResponseData {
 
     // Fetch API-like chainable methods
     /**
-     * Runs an error handler callback and return this HttpResponse, allowing chaining.
+     * Runs an error handler callback and return this Response, allowing chaining.
      * 
      * @param callable $rejected
      * @return self
@@ -930,7 +937,7 @@ class HttpResponse implements IResponseData {
     /**
      * Runs a success handler callback and, optionally error handler callback, choosing wich to execute based on
      * response status.
-     * Returns this HttpResponse, allowing chaining.
+     * Returns this Response, allowing chaining.
      * 
      * @param callable $fulfilled
      * @param callable $rejected
@@ -951,7 +958,7 @@ class HttpResponse implements IResponseData {
     // jqXHR like chainable methods
     /**
      * Runs one or many handler callbacks, no matter the status of the response.
-     * Alias to HttpResponse::_finally($alwaysCallbacks) when used with a single callback as parameter.
+     * Alias to Response::_finally($alwaysCallbacks) when used with a single callback as parameter.
      * 
      * @param callable|callable[] $alwaysCallbacks
      * @return self
@@ -969,7 +976,7 @@ class HttpResponse implements IResponseData {
     }
     /**
      * Runs one or many success handler callbacks.
-     * Alias to HttpResponse::then($doneCallbacks) when used with a single callback as parameter.
+     * Alias to Response::then($doneCallbacks) when used with a single callback as parameter.
      * 
      * @param callable|callable[] $doneCallbacks
      * @return self
@@ -987,7 +994,7 @@ class HttpResponse implements IResponseData {
     }
     /**
      * Runs one or many error handler callbacks.
-     * Alias to HttpResponse::_catch($failCallbacks) when used with a single callback as parameter.
+     * Alias to Response::_catch($failCallbacks) when used with a single callback as parameter.
      * 
      * @param callable|callable[] $failCallbacks
      * @return self
@@ -1006,29 +1013,29 @@ class HttpResponse implements IResponseData {
 }
 
 /**
- * A ResponseException is thrown when an HttpRequest fails due to a network error
+ * A ResponseException is thrown when an Request fails due to a network error
  * (like a ssl reset, for example).
  * 
  * @param string $message The Exception message to throw.
  * @param int $code The Exception code.
  * @param Throwable $previous The previous exception used for the exception chaining.
  * 
- * @property HttpRequest $Request Request in witch the response was thrown
- * @property HttpResponse $Response Response 
+ * @property Request $Request Request in witch the response was thrown
+ * @property Response $Response Response 
  * 
- * @see HttpRequest
+ * @see Request
  */
-class ResponseException extends Exception {
+class ResponseException extends \Exception {
     /**
-     * HttpRequest send to the server.
+     * Request send to the server.
      * 
-     * @var HttpRequest
+     * @var Request
      */
     protected $Request;
     /**
      * Response returned by the server.
      * 
-     * @var HttpResponse
+     * @var Response
      */
     protected $Response;
 
@@ -1130,307 +1137,71 @@ class ResponseException extends Exception {
     }
 }
 
-
-
 /**
- * Encapsulates the File Upload logic, providing more a more reasonable way to deal with the files.
+ * Dummy container to represent common Content-Type headers in a standard way.
  * 
- * @property-read string $Name The original name of the file on the client machine.
- * @property-read string $Type The mime type of the file, checked on the server side instead of believing on what the
- * browser says.
- * @property-read int $Size The size, in bytes, of the uploaded file.
- * @property-read string $Path The temporary path of the file in which the uploaded file was stored on the server or
- * the updated path if the file was moved.
- * @property-read string $Moved If the file was moved by Move() or Save() method.
- * 
- * @see UploadException
+ * @see https://developer.mozilla.org/en-US/docs/Web/HTTP/Methods/POST
  */
-class HttpUploadFile {
+abstract class ContentType implements IEnum {
     /**
-     * Encapsulates a single file from $_FILES, returning a HttpUploadFile instance.
-     * If multiple files were sent with $HtmlName, only the first will be taken.
-     * 
-     * @param string $HtmlName Name attribute of the Form Element used to submit the file
-     * @return HttpUploadFile
-     */
-    public static function GetSingle($HtmlName) {
-        // Checking if there is a file
-        if (!array_key_exists($HtmlName, $_FILES)) {
-            throw new BadFunctionCallException(
-                "No file was uploaded with $HtmlName name attribute."
-            );
-        }
-
-        // Gets only the first file if multiple were uploaded
-        if (is_array($_FILES[$HtmlName]['name'])) {
-            // Checking for upload errors
-            if ($_FILES[$HtmlName]['error'][0] != UPLOAD_ERR_OK) {
-                throw new UploadException($_FILES[$HtmlName]['error']);
-            }
-
-            return new HttpUploadFile(
-                $_FILES[$HtmlName]['name'][0],
-                $_FILES[$HtmlName]['size'][0],
-                $_FILES[$HtmlName]['tmp_name'][0]
-            );
-        } else {
-            // Checking for upload errors
-            if ($_FILES[$HtmlName]['error'] != UPLOAD_ERR_OK) {
-                throw new UploadException($_FILES[$HtmlName]['error']);
-            }
-
-            return new HttpUploadFile(
-                $_FILES[$HtmlName]['name'],
-                $_FILES[$HtmlName]['size'],
-                $_FILES[$HtmlName]['tmp_name']
-            );
-        }
-    }
-    /**
-     * Encapsulates multiple files from $_FILES, returning an array with a HttpUploadFile instance for each of them.
-     * Only reads a 2D $_FILES array, more complex structures won't work.
-     * 
-     * @param string $HtmlName Name attribute of the Form Element used to submit the file
-     * @return HttpUploadFile[]
-     */
-    public static function GetAll($HtmlName) {
-        // Checking if there is a file
-        if (!array_key_exists($HtmlName, $_FILES)) {
-            throw new BadFunctionCallException(
-                "No file was uploaded with $HtmlName name attribute."
-            );
-        }
-
-        /**
-         * @var HttpUploadFile[]
-         */
-        $Result = array();
-
-        if (is_array($_FILES[$HtmlName]['name'])) {
-            // Autistic loop made by PHP's *wonderful* multiple upload scheme
-            foreach ($_FILES[$HtmlName]['error'] as $Index => $Error) {
-                // Checking for upload errors on each file
-                if ($Error != UPLOAD_ERR_OK) {
-                    throw new UploadException($Error);
-                }
-
-                $Result[] = new HttpUploadFile(
-                    $_FILES[$HtmlName]['name'][$Index],
-                    $_FILES[$HtmlName]['size'][$Index],
-                    $_FILES[$HtmlName]['tmp_name'][$Index]
-                );
-            }
-        } else { // If there's only one file, will be added to array
-            // Checking for upload errors
-            if ($_FILES[$HtmlName]['error'] != UPLOAD_ERR_OK) {
-                throw new UploadException($_FILES[$HtmlName]['error']);
-            }
-
-            $Result[] = new HttpUploadFile(
-                $_FILES[$HtmlName]['name'],
-                $_FILES[$HtmlName]['size'],
-                $_FILES[$HtmlName]['tmp_name']
-            );
-        }
-
-        return $Result;
-    }
-
-
-
-    /**
-     * The original name of the file on the client machine.
+     * Binary file.
      * 
      * @var string
      */
-    protected $Name;
+    const BINARY = 'application/octet-stream';
     /**
-     * The mime type of the file, checked on the server side instead of believing on what the browser says.
+     * Request: Each value is sent as a block of data ("body part"), with a user agent-defined delimiter ("boundary")
+     * separating each part. The keys are given in the Content-Disposition header of each part.
      * 
      * @var string
      */
-    protected $Type;
+    const FORM_DATA = 'multipart/form-data';
     /**
-     * The size, in bytes, of the uploaded file.
-     * 
-     * @var int
-     */
-    protected $Size;
-    /**
-     * The temporary path of the file in which the uploaded file was stored on the server.
-     * If the file was successfully moved by .Move() or .Save(), will contain the updated path.
+     * Request: JSON encoded data, be it an object, an array or a JSON string. Response: JSON encoded string.
+     * It should be encoded in UTF-8 and always used double quotes for strings.
      * 
      * @var string
      */
-    protected $Path;
+    const JSON = 'application/json';
     /**
-     * If the file was already moved using a call to either .Move() or .Save().
+     * Lightweight Linked Data format basead on JSON that provides a way to help JSON data interoperate at Web-scale.
+     * Ideal data format for programming environments, REST Web services, and unstructured databases.
      * 
-     * @var bool
+     * @var string
      */
-    protected $Moved;
-
-
-
+    const JSON_LD = 'application/ld+json';
     /**
-     * Creates a new HttpUploadFile instance, checking internally it's mime type.
+     * Request: Spaces are converted to "+" symbols, but no special characters are encoded. Response: .txt files.
      * 
-     * @internal
-     * @param string $name Original name of the file, aka $_FILES[{whathever}]['name']
-     * @param int $size Size of the file, aka $_FILES[{whathever}]['size']
-     * @param string $tmp_name Temporary path of the file on server, aka $_FILES[{whathever}]['tmp_name']
+     * @var string
      */
-    public function __construct($name, $size, $tmp_name) {
-        $this->Name = $name;
-        $this->Size = $size;
-        $this->Path = $tmp_name;
-        $this->Moved = false;
-
-        $Type = @mime_content_type($tmp_name);
-        $this->Type = is_string($Type) ? $Type : '';
-    }
+    const TEXT = 'text/plain';
     /**
-     * Magic method __get() to make the HttpResponse properties read-only.
+     * Unknown file type.
      * 
-     * @param string $name
-     * @return mixed|null Property value if it exists, null else.
+     * @var string
      */
-    public function __get($name)
-    {
-        return property_exists($this, $name)
-            ? $this->{$name}
-            : null
-        ;
-    }
+    const UNKNOW = 'application/octet-stream';
     /**
-     * Allows reading the file content typecasting this object to a string.
-     * If the conent can't be read as string, an empty string is returned.
+     * Request: Keys and values are encoded in key-value tuples separated by '&', with a '=' between the key
+     * and the value.
+     * Non-alphanumeric characters in both keys and values are percent encoded.
      * 
-     * @return string
+     * @var string
      */
-    public function __toString() {
-        $Content = file_get_contents($this->Path);
-
-        return is_string($Content) ? $Content : '';
-    }
-
-
-
+    const URL_ENCODED = 'application/x-www-form-urlencoded';
     /**
-     * Moves an uploaded file to a new location. If the file is already moved, returns false.
+     * XML not readable from casual users; .xml files.
      * 
-     * @param string $destination The destination of the moved file.
-     * @return bool
+     * @var string
      */
-    public function Move($destination) {
-        if (!$this->Moved) {
-            $Result = move_uploaded_file($this->Path, $destination);
-
-            if ($Result) {
-                $this->Path = $destination;
-            }
-        } else {
-            $Result = false;
-        }
-
-        return $Result;
-    }
+    const XML = 'application/xml';
     /**
-     * Reads the contents of the file to the output.
+     * XTML readable from casual users; .xml files.
      * 
-     * @return int|false the number of bytes read from the file. If an error occurs, false is returned.
+     * @var string
      */
-    public function Output() {
-        return readfile($this->Path);
-    }
-    /**
-     * Saves the contents of an uploaded file. If the file is already moved, returns false.
-     * Alias to .Move(string)
-     * 
-     * @param string $filename The name of the saved file.
-     * @return bool
-     */
-    public function SaveAs($filename) {
-        return $this->Move($filename);
-    }
-    /**
-     * Returns the Base64 string representation of the file content.
-     * If the content can't be read as string, an empty string is returned.
-     * 
-     * @return string
-     */
-    public function ToBase64() {
-        $Content = file_get_contents($this->Path);
-        
-        return is_string($Content) ? base64_encode($Content) : '';
-    }
-    /**
-     * Returns a binary array with the file content.
-     * If the content can't be read as string, an empty array is returned.
-     * 
-     * @return int[]
-     */
-    public function ToBinaryArray() {
-        $Content = file_get_contents($this->Path);
-        
-        return is_string($Content) ? unpack('N*', $Content) : array();
-    }
-    /**
-     * Returns the string representation of the file content.
-     * If the content can't be read as string, an empty string is returned.
-     * 
-     * @return string
-     */
-    public function ToString() {
-        $Content = file_get_contents($this->Path);
-        
-        return is_string($Content) ? $Content : '';
-    }
-}
-
-/**
- * An UploadException is thrown when an error is found on a HttpUploadFile, making easier to spot upload errors.
- * 
- * This is based on danbrown's comment on PHP's manual.
- * @see HttpUploadFile
- * @see https://www.php.net/manual/en/features.file-upload.errors.php
- */
-class UploadException extends Exception {
-    public function __construct($code, $previous = null) {
-        $message = $this->codeToMessage($code);
-        parent::__construct($message, $code, $previous);
-    }
-
-    protected function codeToMessage($code) {
-        switch ($code) {
-            case UPLOAD_ERR_INI_SIZE:
-                $message = "The uploaded file exceeds the upload_max_filesize directive in php.ini";
-                break;
-            case UPLOAD_ERR_FORM_SIZE:
-                $message = "The uploaded file exceeds the MAX_FILE_SIZE directive that was specified in the HTML form";
-                break;
-            case UPLOAD_ERR_PARTIAL:
-                $message = "The uploaded file was only partially uploaded";
-                break;
-            case UPLOAD_ERR_NO_FILE:
-                $message = "No file was uploaded";
-                break;
-            case UPLOAD_ERR_NO_TMP_DIR:
-                $message = "Missing a temporary folder";
-                break;
-            case UPLOAD_ERR_CANT_WRITE:
-                $message = "Failed to write file to disk";
-                break;
-            case UPLOAD_ERR_EXTENSION:
-                $message = "File upload stopped by extension";
-                break;
-            default:
-                $message = "Unknown upload error";
-                break;
-        }
-
-        return $message;
-    }
+    const XML_PUBLIC = 'text/xml';
 }
 
 
@@ -1448,4 +1219,11 @@ interface IRequestData {
  * Marker interface, no functionality provided.
  */
 interface IResponseData {
+}
+/**
+ * Indicates that the class is an enumeration of values for HTTP Requests/Responses.
+ * 
+ * Marker interface, no functionality provided.
+ */
+interface IEnum {
 }
