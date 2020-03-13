@@ -640,8 +640,7 @@ class HttpResponse implements IResponseData {
     /**
      * Discards the Stream used internally.
      */
-    public function __destruct()
-    {
+    public function __destruct() {
         if (!empty($this->body)) {
             fclose($this->body);
         }
@@ -651,8 +650,7 @@ class HttpResponse implements IResponseData {
      * 
      * @return mixed|null Property value if it exists, null else.
      */
-    public function __get($name)
-    {
+    public function __get($name) {
         if ($name == 'body') {
             $this->bodyUsed = true;
         }
@@ -662,12 +660,52 @@ class HttpResponse implements IResponseData {
             : null
         ;
     }
+    /**
+     * Returns a one dimension version of the array, creating complex keys for nested arrays.
+     * Duplicate keys are not ovewrited.
+     * 
+     * @param array $Source
+     * @param string $Prefix
+     * @return array
+     */
+    public function FlattenArray($Source, $Prefix = '') {
+        $Result = array();
+
+        foreach ($Source as $OriginalKey => $Value) {
+            if ($Prefix == '') {
+                $Key = $OriginalKey;
+            } elseif (is_int($OriginalKey)) {
+                // Keeping same format used by PHP's to parse Querystring
+                $Key = "{$Prefix}[]";
+            }else{
+                $Key = "$Prefix.$OriginalKey";
+            }
+            
+            if (is_array($Value)) {
+                $Result += $this->FlattenArray($Value, $Key);
+            } else {
+                $Result[$Key] = $Value;
+            }
+        }
+
+        return $Result;
+    }
+    /**
+     * Checks if given string is binary.
+     * 
+     * @param string $String
+     * @return bool
+     */
+    public function IsBinary($String) {
+        return !ctype_print($String) || strpos($String, "\0");
+    }
 
 
 
     // Fetch API-like Response methods
     /**
      * Creates a clone of this Response object, allowing a new use of the response body (on the new object).
+     * This method is recommended over native PHP cloning, due to stream cloning logic.
      * 
      * @return self
      * @throws LogicException If the response body has already been read
@@ -680,16 +718,16 @@ class HttpResponse implements IResponseData {
         }
         $Result = clone $this;
         
-        $Copy = fopen('php://temp', 'w+');
+        $Copy = fopen('php://temp', 'wb+');
         stream_copy_to_stream($this->body, $Copy);
         rewind($Copy);
 
-        $this->body = fopen('php://temp', 'r+');
+        $this->body = fopen('php://temp', 'rb+');
         stream_copy_to_stream($Copy, $this->body);
         rewind($this->body);
         
         rewind($Copy);
-        $Result->body = fopen('php://temp', 'r+');
+        $Result->body = fopen('php://temp', 'rb+');
         stream_copy_to_stream($Copy, $Result->body);
         rewind($Result->body);
 
@@ -742,14 +780,72 @@ class HttpResponse implements IResponseData {
 
 
     // Fetch API-like Response.Body methods
-    // public function arrayBuffer() {
-    // }
-    // public function blob() {
-    // }
-    // public function formData() {
-    // }
     /**
-     * Read's response body as decoded JSON content using native's json_decode() function.
+     * Reads response body as a byte array.
+     * 
+     * @param string $Format (optional)
+     * @return array
+     * @throws ResponseException If the method is called after an error occurred.
+     */
+    public function arrayBuffer($Format = 'N*') {
+        $this->bodyUsed = true;
+
+        if ($this->type == 'error') {
+            throw new ResponseException(array(
+                'message'  => 'Nothing to read, an error occurred.',
+                'Response' => $this,
+                'Request'  => $this->Request
+            ));
+        }
+
+        return unpack($Format, stream_get_contents($this->body));
+    }
+    /**
+     * Reads response body as a binary data string.
+     * A non-binary body will be assumed to be in Hexadecimal and translated from that.
+     * 
+     * @return string Binary string
+     */
+    public function blob() {
+        $this->bodyUsed = true;
+
+        if ($this->type == 'error') {
+            throw new ResponseException(array(
+                'message'  => 'Nothing to read, an error occurred.',
+                'Response' => $this,
+                'Request'  => $this->Request
+            ));
+        }
+
+        $Content = stream_get_contents($this->body);
+        
+        if ($this->IsBinary($Content)) {
+            return $Content;
+        } else {
+            return pack('H*', $Content);
+        }
+    }
+    /**
+     * Reads response body as an associative array, mimicking Javascript's FormData.
+     * If the body content is multidimensional (like a JSON object with neted objects), it will be flattened.
+     * 
+     * @return array
+     */
+    public function formData() {
+        $Content = stream_get_contents($this->body);
+        // trying to decode as JSON
+        $JSON = json_decode($Content, true);
+        if (json_last_error() == JSON_ERROR_NONE) { // JSON Content
+            $Result = $this->FlattenArray($JSON);
+        } else { // Querystring or application/x-www-form-urlencoded
+            $Result = array();
+            parse_str($Content, $Result);
+        }
+        
+        return $Result;
+    }
+    /**
+     * Reads response body as decoded JSON content using native's json_decode() function.
      * 
      * @param bool $assoc When TRUE, returned objects will be converted into associative arrays.
      * @return object|array
@@ -772,9 +868,10 @@ class HttpResponse implements IResponseData {
         );
     }
     /**
-     * Read's response body as pure text.
+     * Reads response body as pure text.
+     * A binary body will be converted to Hexadecimal representation.
      * 
-     * @return string
+     * @return string Pure text string
      * @throws ResponseException If the method is called after an error occurred.
      */
     public function text() {
@@ -788,7 +885,13 @@ class HttpResponse implements IResponseData {
             ));
         }
 
-        return stream_get_contents($this->body);
+        $Content = stream_get_contents($this->body);
+        
+        if ($this->IsBinary($Content)) {
+            return implode('', unpack('H*', $Content));
+        } else {
+            return $Content;
+        }
     }
 
 
