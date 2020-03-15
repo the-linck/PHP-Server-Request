@@ -259,7 +259,7 @@ class Request {
                 } elseif (is_resource($this->content)) { // application/octet-stream
                     $Config['content'] = stream_get_contents($this->content);
                 } else {
-                    $Config['content'] = (string) $this->content
+                    $Config['content'] = (string) $this->content;
                 }
                 break;
             case ContentType::FORM_DATA: // multipart/form-data
@@ -288,7 +288,7 @@ class Request {
             case ContentType::XML: // application/xml
                 if (is_string($this->content)) {
                     $Config['content'] = $this->content;
-                } elseif ($this->content instanceof \SimpleXMLElement) {
+                } elseif ($this->content instanceof \SimpleXMLElement) { // application/xml
                     $Config['content'] = (string) $this->content;
                 } else {
                     throw new \LogicException('Invalid XML Content');
@@ -298,7 +298,9 @@ class Request {
             default:
                 if (is_string($this->content)) {
                     $Config['content'] = $this->content;
-                } else { // URL_ENCODED
+                } elseif (is_resource($this->content)) { // application/octet-stream
+                    $Config['content'] = stream_get_contents($this->content);
+                } else { // application/x-www-form-urlencoded
                     $Config['content'] = http_build_query($this->content);
                 }
                 break;
