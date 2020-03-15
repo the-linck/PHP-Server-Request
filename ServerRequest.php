@@ -160,7 +160,7 @@ class Request {
      * property names
      * @return self
      */
-    public function __construct($Options = array()) {
+    public function __construct(array $Options = []) {
         if (is_array($Options)) {
             foreach ($Options as $Name => $Value) {
                 if (property_exists($this, $Name)) {
@@ -175,7 +175,7 @@ class Request {
      * @param string|string[] $Headers
      * @return self
      */
-    public function AddHeaders($Headers) {
+    public function AddHeaders($Headers) : self {
         if(!is_array($Headers)) {
             $Headers = array($Headers);
         }
@@ -206,7 +206,7 @@ class Request {
      * @param mixed $Value
      * @return string
      */
-    protected function MutiPartField($Boundary, $Name, $Value) {
+    protected function MutiPartField(string $Boundary, string $Name, $Value) : string {
         $EOL = "\r\n";
         $Field = "--{$Boundary}{$EOL}";
         $Field .= "Content-Disposition: form-data; name=\"$Name\"";
@@ -238,7 +238,7 @@ class Request {
      * 
      * @return Response
      */
-    protected function Execute() {
+    protected function Execute() : Response {
         $Config = array(
             'method' => empty($this->method) ? Method::GET : strtoupper($this->method)
         );
@@ -381,7 +381,7 @@ class Request {
      * @param string|string[] $Headers
      * @return self
      */
-    public function RemoveHeaders($Headers) {
+    public function RemoveHeaders($Headers) : self {
         if (!empty($this->header)) {
             if(!is_array($Headers)) {
                 $Headers = array($Headers);
@@ -402,6 +402,8 @@ class Request {
                 }    
             }
         }
+
+        return $this;
     }
 
 
@@ -413,7 +415,7 @@ class Request {
      * @param array $init
      * @return Response
      */
-    public function _fetch($init = array()) {
+    public function _fetch(array $init = []) : Response {
         foreach ($init as $Key => $Value) {
             switch ($Key) {
                 case 'method':
@@ -447,7 +449,7 @@ class Request {
      * @param array $init
      * @return Response
      */
-    public static function fetch($resource, $init = array()) {
+    public static function fetch(string $resource, array $init = []) : Response {
         return (new Request(array('url' => $resource)))->_fetch($init);
     }
 
@@ -462,7 +464,7 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public function _get($success = null, $dataType = null) {
+    public function _get(callable $success = null, string $dataType = null) : Response {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
@@ -485,7 +487,12 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public static function get($url, $data = null, $success = null, $dataType = null) {
+    public static function get(
+        string $url,
+        $data = null,
+        callable $success = null,
+        string $dataType = null
+    ) : Response {
         $Config = array('url' => $url);
         if (!empty($data)) {
             $Config['content'] = $data;
@@ -503,7 +510,7 @@ class Request {
      * @return Response
      * @see ContentType::URL_ENCODED
      */
-    public function _post($success = null, $dataType = null) {
+    public function _post(callable $success = null, string $dataType = null) : Response {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
@@ -529,7 +536,12 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public static function post($url, $data = null, $success = null, $dataType = null) {
+    public static function post(
+        string $url,
+        $data = null,
+        callable $success = null,
+        string $dataType = null
+    ) : Response {
         $Config = array('url' => $url);
         if (!empty($data)) {
             $Config['content'] = $data;
@@ -652,11 +664,11 @@ class Response implements IResponseData {
      * @param Request $Request The request that created this object
      * @return self
      */
-    public function __construct($Stream, $Request) {
+    public function __construct($Stream, Request $Request = null) {
         $this->body     = $Stream;
         $this->bodyUsed = false;
         
-        $HasRequest = is_object($Request);
+        $HasRequest = $Request != null;
         if ($HasRequest) {
             $this->Request = clone $Request;
         }
@@ -775,9 +787,10 @@ class Response implements IResponseData {
     /**
      * Magic method __get() to make the Response properties read-only.
      * 
+     * @return string $name Name of the field to return.
      * @return mixed|null Property value if it exists, null else.
      */
-    public function __get($name) {
+    public function __get(string $name) {
         if ($name == 'body') {
             $this->bodyUsed = true;
         }
@@ -795,8 +808,8 @@ class Response implements IResponseData {
      * @param string $Prefix
      * @return array
      */
-    public function FlattenArray($Source, $Prefix = '') {
-        $Result = array();
+    public function FlattenArray(array $Source, string $Prefix = '') : array {
+        $Result = [];
 
         foreach ($Source as $OriginalKey => $Value) {
             if ($Prefix == '') {
@@ -823,7 +836,7 @@ class Response implements IResponseData {
      * @param string $String
      * @return bool
      */
-    public function IsBinary($String) {
+    public function IsBinary(string $String) : bool {
         return !ctype_print($String) || strpos($String, "\0");
     }
 
@@ -837,7 +850,7 @@ class Response implements IResponseData {
      * @return self
      * @throws LogicException If the response body has already been read
      */
-    public function _clone() {
+    public function _clone() : self {
         if ($this->bodyUsed) {
             throw new \LogicException(
                 'Cannnot clone a Request when it\'s body was alredy read.'
@@ -867,15 +880,17 @@ class Response implements IResponseData {
      * 
      * @return self
      */
-    public static function error() {
+    public static function error() : self {
         return new Response(false, null);
     }
     /**
      * Returns a new Response resulting in a redirect to the specified URL.
      * 
+     * @param string $url
+     * @param int $status
      * @return self
      */
-    public static function redirect($url, $status = 0) {
+    public static function redirect(string $url, int $status = 0) : self {
         if ($status == 0) {
             $status = 302;
         } else {
@@ -914,7 +929,7 @@ class Response implements IResponseData {
      * @return array
      * @throws ResponseException If the method is called after an error occurred.
      */
-    public function arrayBuffer($Format = 'N*') {
+    public function arrayBuffer(string $Format = 'N*') : array {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
@@ -933,7 +948,7 @@ class Response implements IResponseData {
      * 
      * @return string Binary string
      */
-    public function blob() {
+    public function blob() : string {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
@@ -958,14 +973,14 @@ class Response implements IResponseData {
      * 
      * @return array
      */
-    public function formData() {
+    public function formData() : array {
         $Content = stream_get_contents($this->body);
         // trying to decode as JSON
         $JSON = json_decode($Content, true);
         if (json_last_error() == JSON_ERROR_NONE) { // JSON Content
             $Result = $this->FlattenArray($JSON);
         } else { // Querystring or application/x-www-form-urlencoded
-            $Result = array();
+            $Result = [];
             parse_str($Content, $Result);
         }
         
@@ -978,15 +993,15 @@ class Response implements IResponseData {
      * @return object|array
      * @throws ResponseException If the method is called after an error occurred.
      */
-    public function json($assoc = false) {
+    public function json(bool $assoc = false) {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
-            throw new ResponseException(array(
+            throw new ResponseException([
                 'message'  => 'Nothing to read, an error occurred.',
                 'Response' => $this,
                 'Request'  => $this->Request
-            ));
+            ]);
         }
 
         return json_decode(
@@ -1001,7 +1016,7 @@ class Response implements IResponseData {
      * @return string Pure text string
      * @throws ResponseException If the method is called after an error occurred.
      */
-    public function text() {
+    public function text() : string {
         $this->bodyUsed = true;
 
         if ($this->type == 'error') {
@@ -1030,8 +1045,8 @@ class Response implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function _catch($rejected) {
-        if ($this->type == 'error' && is_callable($rejected)) {
+    public function _catch(callable $rejected) :self {
+        if ($this->type == 'error') {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
         }
 
@@ -1042,10 +1057,8 @@ class Response implements IResponseData {
      * 
      * @param callable $onFinally
      */
-    public function _finally($settled) {
-        if (is_callable($settled)) {
-            call_user_func($settled);
-        }
+    public function _finally(callable $settled) : void {
+        call_user_func($settled);
 
         // Closing body after finally
         if (!empty($this->body)) {
@@ -1063,10 +1076,10 @@ class Response implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function then($fulfilled, $rejected = null) {
-        if ($this->type != 'error' && is_callable($fulfilled)) {
+    public function then(callable $fulfilled = null, callable $rejected = null) : self {
+        if ($this->type != 'error' && $fulfilled != null) {
             $this->CurentValue = call_user_func($fulfilled, $this->CurentValue);
-        } elseif (is_callable($rejected)) {
+        } elseif ($rejected != null) {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
         }
 
@@ -1080,34 +1093,23 @@ class Response implements IResponseData {
      * Runs one or many handler callbacks, no matter the status of the response.
      * Alias to Response::_finally($alwaysCallbacks) when used with a single callback as parameter.
      * 
-     * @param callable|callable[] $alwaysCallbacks
-     * @return self
+     * @param callable,... $alwaysCallbacks
      */
-    public function always($alwaysCallbacks) {
-        if (is_array($alwaysCallbacks)) {
-            foreach ($alwaysCallbacks as $Callback) {
-                $this->_finally($Callback);
-            }
-        } else {
-            $this->_finally($alwaysCallbacks);
+    public function always(callable ...$alwaysCallbacks) : void {
+        foreach ($alwaysCallbacks as $Callback) {
+            $this->_finally($Callback);
         }
-
-        return $this;
     }
     /**
      * Runs one or many success handler callbacks.
      * Alias to Response::then($doneCallbacks) when used with a single callback as parameter.
      * 
-     * @param callable|callable[] $doneCallbacks
+     * @param callable,... $doneCallbacks
      * @return self
      */
-    public function done($doneCallbacks) {
-        if (is_array($doneCallbacks)) {
-            foreach ($doneCallbacks as $Callback) {
-                $this->then($Callback);
-            }
-        } else {
-            $this->then($doneCallbacks);
+    public function done(callable ...$doneCallbacks) : self {
+        foreach ($doneCallbacks as $Callback) {
+            $this->then($Callback);
         }
 
         return $this;
@@ -1116,16 +1118,12 @@ class Response implements IResponseData {
      * Runs one or many error handler callbacks.
      * Alias to Response::_catch($failCallbacks) when used with a single callback as parameter.
      * 
-     * @param callable|callable[] $failCallbacks
+     * @param callable,... $failCallbacks
      * @return self
      */
-    public function fail($failCallbacks) {
-        if (is_array($failCallbacks)) {
-            foreach ($failCallbacks as $Callback) {
-                $this->_catch($Callback);
-            }
-        } else {
-            $this->_catch($failCallbacks);
+    public function fail(callable ...$failCallbacks) : self {
+        foreach ($failCallbacks as $Callback) {
+            $this->_catch($Callback);
         }
 
         return $this;
@@ -1168,7 +1166,11 @@ class ResponseException extends \Exception {
      * @param int|string $code (optional) Error code
      * @param \Throwable $previous (optional) Previous exception on the call stack
      */
-    public function __construct($Data = null, $code = 0, $previous = null) {
+    public function __construct(
+        $Data = null,
+        $code = 0,
+        \Throwable $previous = null
+    ) {
         if (is_array($Data)) {
             // Setting values
             foreach ($Data as $Name => $Value) {
@@ -1217,7 +1219,7 @@ class ResponseException extends \Exception {
      * @return string $name Name of the field to return.
      * @return mixed
      */
-    public function __get($name) {
+    public function __get(string $name) {
         return property_exists($this, $name)
             ? $this->{$name}
             : null
@@ -1229,7 +1231,7 @@ class ResponseException extends \Exception {
      * 
      * @return string
      */
-    public function __toString() {
+    public function __toString() : string {
         $Data = [
             'status'  => $this->code,
             'message' => $this->message,
