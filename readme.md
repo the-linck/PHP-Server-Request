@@ -1,8 +1,8 @@
 # PHP-Server-Request
 
-This library mimics Javascript's Fetch API in PHP, allowing you to easily make server-side requests the same way you would do in JS - with minor syntax differences.
+> This is the compatibility branch of the project, made to support PHP5.4+. It falls behind the main branch on speed and code safety, use it only if you cannot update to PHP 7.3+.
 
-It also provides better management for uploaded files, some useful interfaces and exceptions, all of them really simple to use.
+This library mimics Javascript's Fetch API in PHP, allowing you to easily make server-side requests the same way you would do in JS - with minor syntax differences.
 
 Under the hood only native resources of the language are used to configure everything and make the requests, so there's nothing to install on the server for this lib to work - just import/require and use it.
 
