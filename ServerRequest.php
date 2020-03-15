@@ -160,8 +160,7 @@ class Request {
      * property names
      * @return self
      */
-    public function __construct($Options = array())
-    {
+    public function __construct($Options = array()) {
         if (is_array($Options)) {
             foreach ($Options as $Name => $Value) {
                 if (property_exists($this, $Name)) {
@@ -208,7 +207,8 @@ class Request {
      * @return string
      */
     protected function MutiPartField($Boundary, $Name, $Value) {
-        $Field = "--$Boundary\n";
+        $EOL = "\r\n";
+        $Field = "--{$Boundary}{$EOL}";
         $Field .= "Content-Disposition: form-data; name=\"$Name\"";
 
         // Seeking filename and content-type for files
@@ -216,7 +216,7 @@ class Request {
             $Options = @stream_get_meta_data($Value);
 
             if (is_array($Options) && array_key_exists('uri', $Options)) {
-                $Field .= "; filename=\"" . basename($Options['uri']) . "\"\n";
+                $Field .= "; filename=\"" . basename($Options['uri']) . "\"$EOL";
                 $ContentType = @mime_content_type($Options['uri']);
 
                 if (!is_string($ContentType)) {
@@ -225,10 +225,12 @@ class Request {
                 $Field .= "Content-Type: $ContentType";
             }
 
-            $Field .= "\n\n" . stream_get_contents($Value) . "\n";
+            $Field .= "{$EOL}{$EOL}" . stream_get_contents($Value) . $EOL;
         } else {
-            $Field .= "\n\n$Value\n";
+            $Field .= "{$EOL}{$EOL}$Value{$EOL}";
         }
+
+        return $Field;
     }
     /**
      * Internal method to open a stream for this Request, creating a Response object to deal with the
@@ -241,29 +243,31 @@ class Request {
             'method' => empty($this->method) ? Method::GET : strtoupper($this->method)
         );
 
-        $ContentType = null;
-        $Boundary    = null;
-        $Options     = array(
+        $ContentType  = null;
+        $ContentIndex = 0;
+        $Boundary     = null;
+        $Options      = array(
             'header', 'proxy', 'request_fulluri', 'follow_location',
             'max_redirects', 'protocol_version', 'timeout', 'ignore_errors'
         );
-        $ContentReg = '/^\s*content-type\s*:\s*([^; ]+)\s*;?\s*boundary\s?=\s?"?([^"]+)?"?\s*$/i';
+        $ContentReg = '/^\s?content-type\s?:\s?([^; ]+)\s?(?:;\s?boundary\s?=\s?"?([^"]+)"?\s?)?$/i';
         foreach ($Options as $Option) {
             if (!empty($this->{$Option})) {
                 switch ($Option) {
                     case 'header':
                         $Config['header'] = array();
                         foreach ($this->header as $Header => $Value) {
-                            $Config['header'][] = is_string($Header)
+                            $Value = is_string($Header)
                                 ? "$Header: $Value"
                                 : $Value
                             ;
+                            $Config['header'][] = $Value;
 
                             if ($ContentType == null) {
-                                if (strtolower($Header) == 'content-type') {
-                                    $ContentType = $Value;
-                                } elseif(preg_match($ContentReg, $Value, $Value)) {
+                                if(preg_match($ContentReg, $Value, $Value)) {
+                                    $ContentIndex = count($Config['header']) - 1;
                                     $ContentType = $Value[1];
+
                                     if (array_key_exists(2, $Value)) {
                                         $Boundary = $Value[2];
                                     }
@@ -295,6 +299,7 @@ class Request {
                 // Default boundary when none was found
                 if ($Boundary == null) {
                     $Boundary = md5((new \DateTime())->format(\DateTimeInterface::W3C));
+                    $Config['header'][$ContentIndex] .= "; boundary=$Boundary";
                 }
 
                 if (is_string($this->content) || is_resource($this->content)) {
@@ -316,7 +321,7 @@ class Request {
                         }
                     }
 
-                    $Config['content'] .= "--$Boundary--";
+                    $Config['content'] .= "--$Boundary--\r\n\r\n";
                 } else {
                     throw new \LogicException('Invalid FormData Content');
                 }
@@ -408,8 +413,7 @@ class Request {
      * @param array $init
      * @return Response
      */
-    public function _fetch($init = array())
-    {
+    public function _fetch($init = array()) {
         foreach ($init as $Key => $Value) {
             switch ($Key) {
                 case 'method':
@@ -443,8 +447,7 @@ class Request {
      * @param array $init
      * @return Response
      */
-    public static function fetch($resource, $init = array())
-    {
+    public static function fetch($resource, $init = array()) {
         return (new Request(array('url' => $resource)))->_fetch($init);
     }
 
@@ -459,8 +462,7 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public function _get($success = null, $dataType = null)
-    {
+    public function _get($success = null, $dataType = null) {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
@@ -483,8 +485,7 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public static function get($url, $data = null, $success = null, $dataType = null)
-    {
+    public static function get($url, $data = null, $success = null, $dataType = null) {
         $Config = array('url' => $url);
         if (!empty($data)) {
             $Config['content'] = $data;
