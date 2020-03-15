@@ -20,6 +20,30 @@ To make the code more readable and avoiding having to deal with string case, an 
 
 It is used internally and very recomended on any code for HTTP requests.
 
+
+---
+
+
+
+## \Http\ContentType Enumeration
+
+This enumeration serve to three importante purposes: make the code more readable, represent Content-Type headers in a standard way and show wich Content Types this library can properly process in a Server-Side Request.
+
+Currently, the following types are supported and properly processed:
+
+* **BINARY**, **UNKNOW**: application/octet-stream  
+Request body may be a string, an open stream or anything that allows cast to string
+* **FORM_DATA**: multipart/form-data  
+Request body may be a string, an array, an object, an open stream or a combination of the previous
+* **JSON**: application/json  
+Request body may be a JSON string or an object that produces a JSON string hrough json_decode()
+* **TEXT**: text/plain  
+Request body may be a string, an open stream or anything that allows cast to string
+* **XML**, **XML_PUBLIC**: application/xml, text/xml
+Request body may be a string or a SimpleXMLElement instance
+
+
+
 ---
 
 

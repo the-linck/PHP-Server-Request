@@ -362,8 +362,8 @@ class Request {
                     $Config['content'] = $this->content;
                 } elseif (is_resource($this->content)) { // application/octet-stream
                     $Config['content'] = stream_get_contents($this->content);
-                } elseif (!empty($this->content)) { // application/x-www-form-urlencoded
-                    $Config['content'] = http_build_query($this->content);
+                } elseif (!empty($this->content)) { // text/plain
+                    $Config['content'] = (string) $this->content;
                 }
                 break;
         }
