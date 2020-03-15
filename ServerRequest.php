@@ -202,6 +202,35 @@ class Request {
     }
 
     /**
+     * Builds a field for a multipart/form-data request, checking for name and type if $Value is a resource.
+     * 
+     * @param mixed $Value
+     * @return string
+     */
+    protected function MutiPartField($Boundary, $Name, $Value) {
+        $Field = "--$Boundary\n";
+        $Field .= "Content-Disposition: form-data; name=\"$Name\"";
+
+        // Seeking filename and content-type for files
+        if (is_resource($Value)) {
+            $Options = @stream_get_meta_data($Value);
+
+            if (is_array($Options) && array_key_exists('uri', $Options)) {
+                $Field .= "; filename=\"" . basename($Options['uri']) . "\"\n";
+                $ContentType = @mime_content_type($Options['uri']);
+
+                if (!is_string($ContentType)) {
+                    $ContentType = ContentType::UNKNOW;
+                }
+                $Field .= "Content-Type: $ContentType";
+            }
+
+            $Field .= "\n\n" . stream_get_contents($Value) . "\n";
+        } else {
+            $Field .= "\n\n$Value\n";
+        }
+    }
+    /**
      * Internal method to open a stream for this Request, creating a Response object to deal with the
      * [meta]data and allow Javascript's Fetch-like usage.
      * 
@@ -258,16 +287,44 @@ class Request {
                     $Config['content'] = $this->content;
                 } elseif (is_resource($this->content)) { // application/octet-stream
                     $Config['content'] = stream_get_contents($this->content);
-                } else {
+                } elseif (!empty($this->content)) {
                     $Config['content'] = (string) $this->content;
                 }
                 break;
             case ContentType::FORM_DATA: // multipart/form-data
+                // Default boundary when none was found
+                if ($Boundary == null) {
+                    $Boundary = md5((new \DateTime())->format(\DateTimeInterface::W3C));
+                }
+
+                if (is_string($this->content) || is_resource($this->content)) {
+                    $this->content = array(
+                        'data' =>  $this->content
+                    );
+                }
+
+                if (is_array($this->content) || is_object($this->content)) {
+                    $Config['content'] = '';
+
+                    foreach ($this->content as $Key => $Value) {
+                        if (is_array($Value)) {
+                            foreach ($Value as $Option) {
+                                $Config['content'] .= $this->MutiPartField($Boundary, $Key, $Option);
+                            }
+                        } else {
+                            $Config['content'] .= $this->MutiPartField($Boundary, $Key, $Value);
+                        }
+                    }
+
+                    $Config['content'] .= "--$Boundary--";
+                } else {
+                    throw new \LogicException('Invalid FormData Content');
+                }
                 break;
             case ContentType::JSON: // application/json
                 if (is_string($this->content)) {
                     $Config['content'] = $this->content;
-                } else {
+                } elseif (!empty($this->content)) {
                     $Config['content'] = json_encode($this->content);
 
                     if (json_last_error() != JSON_ERROR_NONE) {
@@ -300,7 +357,7 @@ class Request {
                     $Config['content'] = $this->content;
                 } elseif (is_resource($this->content)) { // application/octet-stream
                     $Config['content'] = stream_get_contents($this->content);
-                } else { // application/x-www-form-urlencoded
+                } elseif (!empty($this->content)) { // application/x-www-form-urlencoded
                     $Config['content'] = http_build_query($this->content);
                 }
                 break;
