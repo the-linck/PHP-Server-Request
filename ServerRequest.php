@@ -97,7 +97,7 @@ class Request {
      */
     public $user_agent;
     /**
-     * @var string Additional data to be sent after the headers. Typically used with POST or PUT requests.
+     * @var mixed Additional data to be sent after the headers. Typically used with POST or PUT requests.
      */
     public $content;
     /**
@@ -212,10 +212,13 @@ class Request {
             'method' => empty($this->method) ? Method::GET : strtoupper($this->method)
         );
 
-        $Options = array(
-            'header', 'content', 'proxy', 'request_fulluri', 'follow_location',
+        $ContentType = null;
+        $Boundary    = null;
+        $Options     = array(
+            'header', 'proxy', 'request_fulluri', 'follow_location',
             'max_redirects', 'protocol_version', 'timeout', 'ignore_errors'
         );
+        $ContentReg = '/^\s*content-type\s*:\s*([^; ]+)\s*;?\s*boundary\s?=\s?"?([^"]+)?"?\s*$/i';
         foreach ($Options as $Option) {
             if (!empty($this->{$Option})) {
                 switch ($Option) {
@@ -226,13 +229,17 @@ class Request {
                                 ? "$Header: $Value"
                                 : $Value
                             ;
-                        }
-                        break;
-                    case 'content':
-                        if (is_string($this->content)) {
-                            $Config['content'] = $this->content;
-                        } else {
-                            $Config['content'] = http_build_query($this->content);
+
+                            if ($ContentType == null) {
+                                if (strtolower($Header) == 'content-type') {
+                                    $ContentType = $Value;
+                                } elseif(preg_match($ContentReg, $Value, $Value)) {
+                                    $ContentType = $Value[1];
+                                    if (array_key_exists(2, $Value)) {
+                                        $Boundary = $Value[2];
+                                    }
+                                }
+                            }
                         }
                         break;
                     default:
@@ -242,6 +249,59 @@ class Request {
                         break;
                 }
             }
+        }
+        // Letting content to be dealt with depending on ContentType header
+        switch ($ContentType) {
+            case ContentType::BINARY: // application/octet-stream
+            case ContentType::UNKNOW: // application/octet-stream
+                if (is_string($this->content)) {
+                    $Config['content'] = $this->content;
+                } elseif (is_resource($this->content)) { // application/octet-stream
+                    $Config['content'] = stream_get_contents($this->content);
+                } else {
+                    $Config['content'] = (string) $this->content
+                }
+                break;
+            case ContentType::FORM_DATA: // multipart/form-data
+                break;
+            case ContentType::JSON: // application/json
+                if (is_string($this->content)) {
+                    $Config['content'] = $this->content;
+                } else {
+                    $Config['content'] = json_encode($this->content);
+
+                    if (json_last_error() != JSON_ERROR_NONE) {
+                        throw new \LogicException('Invalid JSON Content');
+                    }
+                }
+                break;
+            case ContentType::URL_ENCODED: // application/x-www-form-urlencoded
+                if (is_string($this->content)) {
+                    $Config['content'] = $this->content;
+                } elseif (is_object($this->content) || is_array($this->content)) {
+                    $Config['content'] = http_build_query($this->content);
+                } else {
+                    throw new \LogicException('Invalid URL_ENCODED Content');
+                }
+                break;
+            case ContentType::XML_PUBLIC: // text/xml
+            case ContentType::XML: // application/xml
+                if (is_string($this->content)) {
+                    $Config['content'] = $this->content;
+                } elseif ($this->content instanceof \SimpleXMLElement) {
+                    $Config['content'] = (string) $this->content;
+                } else {
+                    throw new \LogicException('Invalid XML Content');
+                }
+                break;
+            case ContentType::TEXT: // text/plain
+            default:
+                if (is_string($this->content)) {
+                    $Config['content'] = $this->content;
+                } else { // URL_ENCODED
+                    $Config['content'] = http_build_query($this->content);
+                }
+                break;
         }
 
         // Creating HTTP Wrapper
@@ -684,7 +744,7 @@ class Response implements IResponseData {
             } elseif (is_int($OriginalKey)) {
                 // Keeping same format used by PHP's to parse Querystring
                 $Key = "{$Prefix}[]";
-            }else{
+            } else {
                 $Key = "$Prefix.$OriginalKey";
             }
             
@@ -1163,13 +1223,6 @@ abstract class ContentType implements IEnum {
      * @var string
      */
     const JSON = 'application/json';
-    /**
-     * Lightweight Linked Data format basead on JSON that provides a way to help JSON data interoperate at Web-scale.
-     * Ideal data format for programming environments, REST Web services, and unstructured databases.
-     * 
-     * @var string
-     */
-    const JSON_LD = 'application/ld+json';
     /**
      * Request: Spaces are converted to "+" symbols, but no special characters are encoded. Response: .txt files.
      * 
