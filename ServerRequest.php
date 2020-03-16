@@ -462,7 +462,7 @@ class Request {
      * @param string $dataType The type of data expected from the server. 
      * @return Response
      */
-    public function _get(callable $success = null, string $dataType = null) : Response {
+    public function _get(?callable $success = null, ?string $dataType = null) : Response {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
@@ -508,7 +508,7 @@ class Request {
      * @return Response
      * @see ContentType::URL_ENCODED
      */
-    public function _post(callable $success = null, string $dataType = null) : Response {
+    public function _post(?callable $success = null, ?string $dataType = null) : Response {
         if (!empty($dataType)) {
             $this->AddHeaders("Accept: $dataType");
         }
@@ -635,7 +635,7 @@ class Response implements IResponseData {
      */
     protected $Request;
     /**
-     * Current error reason on ._catch() sequence.
+     * Current error reason on .catch() sequence.
      * 
      * @var mixed
      */
@@ -662,7 +662,7 @@ class Response implements IResponseData {
      * @param Request $Request The request that created this object
      * @return self
      */
-    public function __construct($Stream, Request $Request = null) {
+    public function __construct($Stream, ?Request $Request = null) {
         $this->body     = $Stream;
         $this->bodyUsed = false;
         
@@ -838,7 +838,7 @@ class Response implements IResponseData {
      * @return self
      * @throws LogicException If the response body has already been read
      */
-    public function _clone() : self {
+    public function clone() : self {
         if ($this->bodyUsed) {
             throw new \LogicException(
                 'Cannnot clone a Request when it\'s body was alredy read.'
@@ -1032,7 +1032,7 @@ class Response implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function _catch(callable $rejected) : self {
+    public function catch(callable $rejected) : self {
         if ($this->type == 'error') {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
         }
@@ -1044,7 +1044,7 @@ class Response implements IResponseData {
      * 
      * @param callable $onFinally
      */
-    public function _finally(callable $settled) : void {
+    public function finally(callable $settled) : void {
         call_user_func($settled);
 
         // Closing body after finally
@@ -1063,7 +1063,7 @@ class Response implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function then(callable $fulfilled = null, callable $rejected = null) : self {
+    public function then(?callable $fulfilled, ?callable $rejected = null) : self {
         if ($this->type != 'error' && $fulfilled != null) {
             $this->CurentValue = call_user_func($fulfilled, $this->CurentValue);
         } elseif ($rejected != null) {
@@ -1078,13 +1078,13 @@ class Response implements IResponseData {
     // jqXHR like chainable methods
     /**
      * Runs one or many handler callbacks, no matter the status of the response.
-     * Alias to Response::_finally($alwaysCallbacks) when used with a single callback as parameter.
+     * Alias to Response::finally($alwaysCallbacks) when used with a single callback as parameter.
      * 
      * @param callable,... $alwaysCallbacks
      */
     public function always(callable ...$alwaysCallbacks) : void {
         foreach ($alwaysCallbacks as $Callback) {
-            $this->_finally($Callback);
+            $this->finally($Callback);
         }
     }
     /**
@@ -1103,14 +1103,14 @@ class Response implements IResponseData {
     }
     /**
      * Runs one or many error handler callbacks.
-     * Alias to Response::_catch($failCallbacks) when used with a single callback as parameter.
+     * Alias to Response::catch($failCallbacks) when used with a single callback as parameter.
      * 
      * @param callable,... $failCallbacks
      * @return self
      */
     public function fail(callable ...$failCallbacks) : self {
         foreach ($failCallbacks as $Callback) {
-            $this->_catch($Callback);
+            $this->catch($Callback);
         }
 
         return $this;
@@ -1156,7 +1156,7 @@ class ResponseException extends \Exception {
     public function __construct(
         $Data = null,
         $code = 0,
-        \Throwable $previous = null
+        ?\Throwable $previous = null
     ) {
         if (is_array($Data)) {
             // Setting values

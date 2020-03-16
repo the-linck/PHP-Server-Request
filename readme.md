@@ -1,6 +1,6 @@
 # PHP-Server-Request
 
-This library mimics Javascript's Fetch API in PHP 7.3+, allowing you to easily make server-side requests the same way you would do in JS - with minor syntax differences.
+This library mimics Javascript's Fetch API in PHP 7.4+, allowing you to easily make server-side requests the same way you would do in JS - with minor syntax differences.
 
 Under the hood only native resources of the language are used to configure everything and make the requests, so there's nothing to install on the server for this lib to work - just import/require and use it.
 
