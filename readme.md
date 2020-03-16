@@ -161,11 +161,11 @@ Runs a success handler callback and, optionally error handler callback, returnin
 
 And, as in \Http\Request, there are also some methods to mimic jQuery's functions:
 
-* **always**(callable ...*$alwaysCallbacks*) : void  
+* **always**(callable|callable[] *$alwaysCallbacks*) : void  
 Runs one or many handler callbacks, no matter the status of the response
-* **done**(callable ...*$doneCallbacks*) : *self*  
+* **done**(callable|callable[] *$doneCallbacks*) : *self*  
 Runs one or many success handler callbacks
-* **catch**(callable ...*$failCallbacks*) : *self*  
+* **catch**(callable|callable[] *$failCallbacks*) : *self*  
 Runs one or many error handler callbacks
 
 >***Notice:** due to PHP's synchronous nature and the way this library is implemented, you should call Response->catch() before Response->then() to deal with errors.* 
