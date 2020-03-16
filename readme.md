@@ -27,7 +27,7 @@ It is used internally and very recomended on any code for HTTP requests.
 
 ## \Http\ContentType Enumeration
 
-This enumeration serve to three importante purposes: make the code more readable, represent Content-Type headers in a standard way and show wich Content Types this library can properly process in a Server-Side Request.
+This enumeration serve to three important purposes: make the code more readable, represent Content-Type headers in a standard way and show wich Content Types this library can properly process in a Server-Side Request.
 
 Currently, the following types are supported and properly processed:
 
@@ -157,26 +157,39 @@ Runs an error handler callback and return this \Http\Response for chaining
 * **finally**(callable *$settled*) : void  
 Runs a handler callback, no matter the status of the response, does not allow chaining
 * **then**(callable *$fulfilled*, [callable *$rejected*]) : *self*  
-Runs a succes handler callback and, optionally error handler callback, returning this \Http\Response for chaining
-
->***Notice:** due to PHP's synchronous nature, you should call Response->catch() before Response->then() to deal with errors.* 
-
-Also, these methods from Javascript's [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object are implemented too:
-
-* **json**([bool *$assoc*]) : *object|array*  
-Read's response body as decoded JSON content
-* **finally**() : *string*  
-Read's response body as pure text
-
+Runs a success handler callback and, optionally error handler callback, returning this \Http\Response for chaining
 
 And, as in \Http\Request, there are also some methods to mimic jQuery's functions:
 
-* **always**(callable|callable[] *$alwaysCallbacks*) : void  
+* **always**(callable ...*$alwaysCallbacks*) : void  
 Runs one or many handler callbacks, no matter the status of the response
-* **done**(callable|callable[] *$doneCallbacks*) : *self*  
+* **done**(callable ...*$doneCallbacks*) : *self*  
 Runs one or many success handler callbacks
-* **catch**(callable|callable[] *$failCallbacks*) : *self*  
+* **catch**(callable ...*$failCallbacks*) : *self*  
 Runs one or many error handler callbacks
+
+>***Notice:** due to PHP's synchronous nature and the way this library is implemented, you should call Response->catch() before Response->then() to deal with errors.* 
+
+
+
+Also, these methods from Javascript's [Response](https://developer.mozilla.org/en-US/docs/Web/API/Response) object are implemented too:
+
+* **arrayBuffer**([string *$Format* = 'N*']) : array  
+Reads response body as a byte array
+* **blob**() : string  
+Reads response body as a binary data string, a non-binary body will be assumed to be in Hexadecimal and translated from that
+* **clone**() : self  
+Creates a clone of this Response object, allowing a new use of the response body (on the new object), recommended over PHP's native *clone* operator
+* static **error**() : self  
+Returns a new Response object associated with a network error
+* **formData**() : array  
+Reads response body as an associative array, mimicking Javascript's FormData, flattening multidimensional structures
+* **json**([bool *$assoc*]) : *object|array*  
+Read's response body as decoded JSON content
+* static **redirect**(string *$url*, [int *$status* = 0]) : self  
+Returns a new Response resulting in a redirect to the specified URL
+* **text**() : *string*  
+Read's response body as pure text
 
 ---
 
@@ -200,7 +213,7 @@ Indicates that the class is an enumeration of values for HTTP Requests/Responses
 ## Exceptions
 
 * **\Http\ResponseException**  
-A *\Http\ResponseException* is thrown when an \Http\Request fails due to a network error (like a ssl reset, for example)  
+A *\Http\ResponseException* is thrown when an \Http\Request fails due to an error on processing the response.
 When made by this library, the Exception will contain the Request where it happened and the Response returned by the server.
 
 ---
