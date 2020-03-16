@@ -83,19 +83,19 @@ class Request {
      * @var string GET, POST, or any other HTTP method supported by the remote server.
      * Defaults to GET.
      */
-    public $method;
+    public string $method;
     /**
      * @var array Additional headers to be sent during request. Values in this option will override other values
      * (such as User-agent:, Host:, and Authentication:).
      */
-    public $header;
+    public array $header;
     /**
      * @var string Value to send with User-Agent: header. This value will only be used if user-agent is not specified
      * in the header context option above.
      * 
      * By default the user_agent php.ini setting is used.
      */
-    public $user_agent;
+    public string $user_agent;
     /**
      * @var mixed Additional data to be sent after the headers. Typically used with POST or PUT requests.
      */
@@ -103,7 +103,7 @@ class Request {
     /**
      * @var string URI specifying address of proxy server. (e.g. tcp://proxy.example.com:5100).
      */
-    public $proxy;
+    public string $proxy;
     /**
      * @var bool When set to TRUE, the entire URI will be used when constructing the request. (i.e. GET
      * http://www.example.com/path/to/file.html HTTP/1.0). While this is a non-standard request format, some proxy
@@ -111,37 +111,37 @@ class Request {
      * 
      * Defaults to FALSE.
      */
-    public $request_fulluri;
+    public bool $request_fulluri;
     /**
      * @var integer Follow Location header redirects. Set to 0 to disable.
      * 
      * Defaults to 1.
      */
-    public $follow_location;
+    public int $follow_location;
     /**
      * @var integer The max number of redirects to follow. Value 1 or less means that no redirects are followed.
      * 
      * Defaults to 20.
      */
-    public $max_redirects;
+    public int $max_redirects;
     /**
      * @var float HTTP protocol version.
      * 
      * Defaults to 1.0.
      */
-    public $protocol_version;
+    public float $protocol_version;
     /**
      * @var float Read timeout in seconds, specified by a float (e.g. 10.5).
      * 
      * By default the default_socket_timeout php.ini setting is used.
      */
-    public $timeout;
+    public float $timeout;
     /**
      * @var bool Fetch the content even on failure status codes.
      * 
      * Defaults to FALSE.
      */
-    public $ignore_errors;
+    public bool $ignore_errors;
 
 
 
@@ -563,23 +563,23 @@ class Response implements IResponseData {
     /**
      * @var object Every header returned by the Request.
      */
-    protected $headers;
+    protected object $headers;
     /**
      * @var bool Indicates whether the response was successful (status in the range 200–299) or not.
      */
-    protected $ok;
+    protected bool $ok;
     /**
      * @var bool Indicates whether or not the response is the result of a redirect (that is, its URL list has more than one entry).
      */
-    protected $redirected;
+    protected bool $redirected;
     /**
      * @var int The status code of the response. (This will be 200 for a success).
      */
-    protected $status;
+    protected int $status;
     /**
      * @var string Status message corresponding to the status code (e.g., OK for 200).
      */
-    protected $statusText;
+    protected string $statusText;
     /**
      * @var callable A callback resolving to a Headers object, associated with the response with Response.headers for
      * values of the HTTP Trailer header.
@@ -590,11 +590,11 @@ class Response implements IResponseData {
     /**
      * @var string The type of the response (e.g., basic, cors).
      */
-    protected $type;
+    protected string $type;
     /**
      * @var string The URL of the response.
      */
-    protected $url;
+    protected string $url;
     /**
      * @var string Every header returned by the Request.
      * 
@@ -608,12 +608,12 @@ class Response implements IResponseData {
     /**
      * @var resource Stream to response's content.
      */
-    protected $body;
+    protected resource $body;
     /**
      * @var bool Whether the body has been used in a response yet.
      * 
      */
-    protected $bodyUsed;
+    protected bool $bodyUsed;
 
 
 
@@ -1150,13 +1150,13 @@ class ResponseException extends \Exception {
      * 
      * @var Request
      */
-    protected $Request;
+    protected Request $Request;
     /**
      * Response returned by the server.
      * 
      * @var Response
      */
-    protected $Response;
+    protected Response $Response;
 
 
 
