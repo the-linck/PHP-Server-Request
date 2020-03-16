@@ -265,7 +265,7 @@ class Request {
 
                             if ($ContentType == null) {
                                 if(preg_match($ContentReg, $Value, $Value)) {
-                                    $ContentIndex = count($Config['header']) - 1;
+                                    $ContentIndex = \array_key_last($Config['header']);
                                     $ContentType = $Value[1];
 
                                     if (array_key_exists(2, $Value)) {
@@ -330,7 +330,7 @@ class Request {
                 if (is_string($this->content)) {
                     $Config['content'] = $this->content;
                 } elseif (!empty($this->content)) {
-                    $Config['content'] = json_encode($this->content);
+                    $Config['content'] = json_encode($this->content, JSON_THROW_ON_ERROR);
 
                     if (json_last_error() != JSON_ERROR_NONE) {
                         throw new \LogicException('Invalid JSON Content');
@@ -991,7 +991,9 @@ class Response implements IResponseData {
 
         return json_decode(
             stream_get_contents($this->body),
-            $assoc
+            $assoc,
+            512,
+            JSON_THROW_ON_ERROR
         );
     }
     /**
@@ -1250,7 +1252,7 @@ class ResponseException extends \Exception {
             $Previous = $Previous->getPrevious();
         }
 
-        return json_encode($Data);
+        return json_encode($Data, JSON_THROW_ON_ERROR);
     }
 }
 
