@@ -1081,7 +1081,6 @@ class Response implements IResponseData {
      * Alias to Response::_finally($alwaysCallbacks) when used with a single callback as parameter.
      * 
      * @param callable|callable[] $alwaysCallbacks
-     * @return self
      */
     public function always($alwaysCallbacks) {
         if (is_array($alwaysCallbacks)) {
@@ -1091,8 +1090,6 @@ class Response implements IResponseData {
         } else {
             $this->_finally($alwaysCallbacks);
         }
-
-        return $this;
     }
     /**
      * Runs one or many success handler callbacks.
@@ -1230,25 +1227,25 @@ class ResponseException extends \Exception {
      * @return string
      */
     public function __toString() {
-        $Data = [
+        $Data = array(
             'status'  => $this->code,
             'message' => $this->message,
             'file'    => $this->getFile(),
             'line'    => $this->getLine(),
-            'stack'   => []
-        ];
+            'stack'   => array()
+        );
 
         /**
          * @var Throwable
          */
         $Previous = $this->getPrevious();
         while($Previous != null) {
-            $Data['stack'][] = [
+            $Data['stack'][] = array(
                 'status'  => $Previous->getCode(),
                 'message' => $Previous->getMessage(),
                 'file'    => $this->getFile(),
                 'line'    => $this->getLine()
-            ];
+            );
 
             $Previous = $Previous->getPrevious();
         }

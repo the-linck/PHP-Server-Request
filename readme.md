@@ -1,6 +1,6 @@
 # PHP-Server-Request
 
-> This is the compatibility branch of the project, made to support PHP5.4+. It falls behind the main branch on speed and code safety, use it only if you cannot update to PHP 7.3+.
+> This is the compatibility branch of the project, made to support PHP5.4+. It falls behind the main branch on speed and code safety, use it only if you cannot update to PHP 7.2+.
 
 This library mimics Javascript's Fetch API in PHP, allowing you to easily make server-side requests the same way you would do in JS - with minor syntax differences.
 
