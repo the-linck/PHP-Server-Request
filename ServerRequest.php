@@ -77,7 +77,7 @@ class Request {
     /**
      * @var string Protocol used to make requests through Streams native extension.
      */
-    const STREAM_PROTOCOL = 'http';
+    protected const STREAM_PROTOCOL = 'http';
 
     /**
      * @var string GET, POST, or any other HTTP method supported by the remote server.
@@ -161,11 +161,9 @@ class Request {
      * @return self
      */
     public function __construct(array $Options = []) {
-        if (is_array($Options)) {
-            foreach ($Options as $Name => $Value) {
-                if (property_exists($this, $Name)) {
-                    $this->{$Name} = $Value;
-                }
+        foreach ($Options as $Name => $Value) {
+            if (property_exists($this, $Name)) {
+                $this->{$Name} = $Value;
             }
         }
     }
@@ -177,15 +175,15 @@ class Request {
      */
     public function AddHeaders($Headers) : self {
         if(!is_array($Headers)) {
-            $Headers = array($Headers);
+            $Headers = [$Headers];
         }
 
         if (empty($this->header)) {
-            $this->header = array();
+            $this->header = [];
         }
         
         foreach ($Headers as $Header => $Value) {
-            if(is_string($Header)) {
+            if (is_string($Header)) {
                 $this->header[$Header] = $Value;
             } else {
                 $Test = explode( ':', $Value, 2 );
@@ -208,8 +206,10 @@ class Request {
      */
     protected function MutiPartField(string $Boundary, string $Name, $Value) : string {
         $EOL = "\r\n";
-        $Field = "--{$Boundary}{$EOL}";
-        $Field .= "Content-Disposition: form-data; name=\"$Name\"";
+        $Field =
+            "--{$Boundary}{$EOL}"
+            . "Content-Disposition: form-data; name=\"$Name\""
+        ;
 
         // Seeking filename and content-type for files
         if (is_resource($Value)) {
@@ -239,23 +239,23 @@ class Request {
      * @return Response
      */
     protected function Execute() : Response {
-        $Config = array(
-            'method' => empty($this->method) ? Method::GET : strtoupper($this->method)
-        );
+        $Config = [
+            'method' => strtoupper($this->method ?? Method::GET)
+        ];
 
         $ContentType  = null;
         $ContentIndex = 0;
         $Boundary     = null;
-        $Options      = array(
+        $Options      = [
             'header', 'proxy', 'request_fulluri', 'follow_location',
             'max_redirects', 'protocol_version', 'timeout', 'ignore_errors'
-        );
+        ];
         $ContentReg = '/^\s?content-type\s?:\s?([^; ]+)\s?(?:;\s?boundary\s?=\s?"?([^"]+)"?\s?)?$/i';
         foreach ($Options as $Option) {
             if (!empty($this->{$Option})) {
                 switch ($Option) {
                     case 'header':
-                        $Config['header'] = array();
+                        $Config['header'] = [];
                         foreach ($this->header as $Header => $Value) {
                             $Value = is_string($Header)
                                 ? "$Header: $Value"
@@ -303,9 +303,7 @@ class Request {
                 }
 
                 if (is_string($this->content) || is_resource($this->content)) {
-                    $this->content = array(
-                        'data' =>  $this->content
-                    );
+                    $this->content = ['data' =>  $this->content];
                 }
 
                 if (is_array($this->content) || is_object($this->content)) {
@@ -384,7 +382,7 @@ class Request {
     public function RemoveHeaders($Headers) : self {
         if (!empty($this->header)) {
             if(!is_array($Headers)) {
-                $Headers = array($Headers);
+                $Headers = [$Headers];
             }
             foreach ($Headers as $Header) {
                 $Test = explode( ':', $Header, 2 );
@@ -472,7 +470,7 @@ class Request {
         $this->ignore_errors = false;
         
 
-        if (is_callable($success)) {
+        if ($success != null) {
             return $this->Execute()->then($success);
         } else {
             return $this->Execute();
@@ -493,7 +491,7 @@ class Request {
         callable $success = null,
         string $dataType = null
     ) : Response {
-        $Config = array('url' => $url);
+        $Config = ['url' => $url];
         if (!empty($data)) {
             $Config['content'] = $data;
         }
@@ -520,7 +518,7 @@ class Request {
         $this->method = Method::POST;
         $this->ignore_errors = false;
 
-        if (is_callable($success)) {
+        if ($success != null) {
             return $this->Execute()->then($success);
         } else {
             return $this->Execute();
@@ -542,7 +540,7 @@ class Request {
         callable $success = null,
         string $dataType = null
     ) : Response {
-        $Config = array('url' => $url);
+        $Config = ['url' => $url];
         if (!empty($data)) {
             $Config['content'] = $data;
         }
@@ -685,8 +683,7 @@ class Response implements IResponseData {
     
                 $LastHttpStatus = '';
                 // Parsing header to a readable format
-                foreach( $Headers as $Value )
-                {
+                foreach( $Headers as $Value ) {
                     $Test = explode( ':', $Value, 2 );
                     if( isset( $Test[1] ) )
                         $this->headers->{trim($Test[0])} = trim( $Test[1] );
@@ -741,25 +738,16 @@ class Response implements IResponseData {
             $LastError = error_get_last();
             // If the error hapened on this file
             if ($LastError['file'] == __FILE__ && $HasRequest) {
-                $Output = array();
+                $Output = [];
                 // eg: HTTP/1.0 405 Method Not Allowed
                 preg_match("%(?:http[\/ ]\d\.\d)\s?(\d+)\s([\w\s]+)%i", $LastError['message'], $Output);
                 $this->type = stream_is_local($this->Request->url)
                     ? 'basic'
                     : 'cors'
                 ;
-                $this->status = array_key_exists(1, $Output)
-                    ? $Output[1]
-                    : 0
-                ;
-                $this->status = array_key_exists(2, $Output)
-                    ? $Output[2]
-                    : 'network error'
-                ;
-                $this->status = array_key_exists(0, $Output)
-                    ? $Output[0]
-                    : 'Unknow network error'
-                ;
+                $this->status = $Output[1] ?? 0;
+                $this->status = $Output[2] ?? 'network error';
+                $this->status = $Output[0] ?? 'Unknow network error';
             } else {
                 $this->type = 'error';
                 $this->status = 0;
@@ -770,10 +758,10 @@ class Response implements IResponseData {
         }
 
         if (empty(self::$VisibleFields)) {
-            self::$VisibleFields = array(
+            self::$VisibleFields = [
                 'headers', 'ok', 'redirected', 'status', 'statusText', 'type', 'url',
                 'body', 'bodyUsed'
-            );
+            ];
         }
     }
     /**
@@ -980,7 +968,6 @@ class Response implements IResponseData {
         if (json_last_error() == JSON_ERROR_NONE) { // JSON Content
             $Result = $this->FlattenArray($JSON);
         } else { // Querystring or application/x-www-form-urlencoded
-            $Result = [];
             parse_str($Content, $Result);
         }
         
@@ -1045,7 +1032,7 @@ class Response implements IResponseData {
      * @param callable $rejected
      * @return self
      */
-    public function _catch(callable $rejected) :self {
+    public function _catch(callable $rejected) : self {
         if ($this->type == 'error') {
             $this->CurentReason = call_user_func($rejected, $this->CurentReason);
         }
